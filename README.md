@@ -7,8 +7,11 @@ and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools were used.
 
 ## Features
 
-- **Create, rename, and edit documents** with rich text: bold, italic,
-  underline, H1/H2, paragraphs, and bulleted/numbered lists (Tiptap).
+- **Create, rename, and edit documents** with rich text (Tiptap): bold,
+  italic, underline, a text-style dropdown (Normal / Heading 1 / Heading 2),
+  a font-size field (presets or type any custom px value), and bulleted /
+  numbered lists — each with format variants (disc/circle/square bullets;
+  decimal/alpha/roman numbering), like Google Docs' list menus.
 - **Autosave** — content and title save automatically ~700ms after you stop
   typing; a status indicator shows Saving… / Saved / error state.
 - **File import** — upload a `.txt` or `.md` file (max 2MB) and it becomes a
@@ -26,6 +29,31 @@ and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools were used.
   screen; a signed cookie-free session cookie (just a user id) tracks who
   you're acting as. This is intentionally not production auth — see
   Limitations.
+
+## Validation & error handling
+
+- **Every API route validates its input with Zod** before touching the
+  database (`src/lib/validation.ts`) — empty/oversized titles, malformed
+  emails, invalid permission values, and unparseable JSON bodies all return
+  `400` with a specific message instead of a stack trace or a silent no-op.
+- **Every mutating route re-checks permissions server-side** (see
+  `ARCHITECTURE.md`), returning `401` (not signed in), `403` (signed in but
+  not allowed — e.g. a `VIEW`-only user hitting `PATCH`, or a non-owner
+  hitting the share/delete endpoints), or `404` (document doesn't exist, or
+  the user has no relationship to it — deliberately not distinguished from
+  "doesn't exist" so you can't probe for the existence of documents you
+  can't see).
+- **File upload validation**: rejects empty files, files over 2MB, and any
+  extension other than `.txt`/`.md`, each with a distinct error message
+  (`src/app/api/documents/upload/route.ts`).
+- **Every write to document content is sanitized server-side**
+  (`src/lib/sanitizeContent.ts`) against an allowlist of tags/attributes/
+  style values — not just relied on as "the editor wouldn't send that." See
+  `AI_USAGE.md` for how this was found (a direct `curl` test, not the UI).
+- **Client-side**: every fetch call (create, autosave, share, upload,
+  delete, login) is wrapped in try/catch with the resulting error rendered
+  inline near the control that triggered it, rather than failing silently
+  or crashing the page.
 
 ## Tech stack
 
@@ -62,11 +90,15 @@ To try sharing yourself, share a document with `ben@example.com` or
 npm test
 ```
 
-Covers the permission-resolution logic (`getRole`/`canEdit`/`canView`/
-`canManageSharing`/`canDelete`) and the file-import conversion (`.txt`/`.md`
-→ HTML, extension detection, filename → title). Both are pure functions
-tested without a database, since they're where the sharing model's
-correctness actually lives.
+20 tests across three suites, all pure functions tested without a database:
+- `permissions.test.ts` — role resolution (`getRole`/`canEdit`/`canView`/
+  `canManageSharing`/`canDelete`), the sharing model's actual correctness.
+- `fileImport.test.ts` — `.txt`/`.md` → HTML conversion, extension
+  detection, filename → title.
+- `sanitizeContent.test.ts` — the server-side HTML sanitizer: allowed tags
+  pass through unchanged, `<script>`/`onerror`/`onclick` are stripped, and
+  the font-size/list-style `style` values are constrained to their exact
+  known sets (nothing else gets through).
 
 ### Production build
 

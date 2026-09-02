@@ -83,6 +83,12 @@ paths (autosave and file import) run content through
 `sanitizeDocumentContent()` (`src/lib/sanitizeContent.ts`, backed by
 `sanitize-html`) before it touches the database, allowlisting only the tags
 the editor's schema actually uses (`p`, `h1-h3`, `strong`, `em`, `u`, `ul`,
-`ol`, `li`, `br`) and no attributes at all — which also rules out
-`onerror`/`onclick`-style handlers and `javascript:` URLs. See
-`src/test/sanitizeContent.test.ts`.
+`ol`, `li`, `br`, `span`) with no attributes anywhere except a `style` on
+`span`/`ul`/`ol` — and even that is restricted per-property to a fixed set
+of known values (a numeric `font-size`, or one of the six supported
+`list-style-type`s), never an arbitrary string. This also rules out
+`onerror`/`onclick`-style handlers and `javascript:` URLs. Every time a
+formatting feature added a new inline style (font size, then bullet/number
+variants), the sanitizer's allowlist had to grow with it in the same
+change — see `src/test/sanitizeContent.test.ts` for both the "known value
+passes through" and "unknown value is stripped" cases.
