@@ -19,7 +19,8 @@ export const shareDocumentSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  userId: z.string().min(1),
+  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+  password: z.string().min(1, "Enter a password"),
 });
 
 export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2MB

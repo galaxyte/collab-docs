@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { getAvatarColor } from "@/lib/avatarColor";
+import { DEMO_CREDENTIALS } from "@/lib/credentials";
 import { loginAs } from "./actions";
 
 export default async function LoginPage({
@@ -9,10 +9,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const [user, { error }, users] = await Promise.all([
+  const [user, { error }, userCount] = await Promise.all([
     getCurrentUser(),
     searchParams,
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.count(),
   ]);
 
   if (user) redirect("/");
@@ -28,45 +28,72 @@ export default async function LoginPage({
             Collab Docs
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Pick a seeded account to continue. This demo uses mocked auth
-            instead of real passwords.
+            Sign in with one of the demo accounts below.
           </p>
         </div>
 
         {error && (
           <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-100">
-            Couldn&apos;t sign you in. Please pick an account below.
+            Incorrect email or password.
           </p>
         )}
 
-        <div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-white/80 p-3 shadow-xl shadow-indigo-100/50 backdrop-blur-sm">
-          {users.map((u) => {
-            const color = getAvatarColor(u.email);
-            return (
-              <form key={u.id} action={loginAs}>
-                <input type="hidden" name="userId" value={u.id} />
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-left transition hover:border-indigo-100 hover:bg-indigo-50/70"
-                >
-                  <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${color.bg} ${color.text}`}
-                  >
-                    {u.name.charAt(0)}
-                  </span>
-                  <span>
-                    <span className="block text-sm font-medium text-slate-900">
-                      {u.name}
-                    </span>
-                    <span className="block text-xs text-slate-500">{u.email}</span>
-                  </span>
-                </button>
-              </form>
-            );
-          })}
+        <form
+          action={loginAs}
+          className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-white/80 p-5 shadow-xl shadow-indigo-100/50 backdrop-blur-sm"
+        >
+          <div>
+            <label htmlFor="email" className="mb-1 block text-xs font-medium text-slate-600">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="ava@example.com"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="mb-1 block text-xs font-medium text-slate-600">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+          <button
+            type="submit"
+            className="mt-1 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-indigo-200 transition hover:shadow-md hover:shadow-indigo-200"
+          >
+            Sign in
+          </button>
+        </form>
+
+        <div className="mt-6 rounded-xl border border-dashed border-indigo-200 bg-white/60 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Demo accounts
+          </p>
+          <ul className="space-y-1 text-xs text-slate-600">
+            {Object.entries(DEMO_CREDENTIALS).map(([email, password]) => (
+              <li key={email}>
+                <span className="font-medium text-slate-800">{email}</span>
+                {" / "}
+                <span className="font-mono">{password}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {users.length === 0 && (
+        {userCount === 0 && (
           <p className="mt-6 text-center text-sm text-slate-500">
             No seeded users found. Run <code>npm run db:seed</code> first.
           </p>

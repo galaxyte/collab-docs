@@ -6,8 +6,9 @@ exercise — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) for what was
 prioritized and why, and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools
 were used.
 
-**Live demo: https://collab-docs-wheat.vercel.app** — pick any seeded user
-on the login screen (no password needed).
+**Live demo: https://collab-docs-wheat.vercel.app** — sign in with any of
+the three demo accounts (shown on the login screen): `ava@example.com` /
+`ava123`, `ben@example.com` / `ben123`, `cara@example.com` / `cara123`.
 
 ## Features
 
@@ -29,10 +30,12 @@ on the login screen (no password needed).
 - **Persistence** — PostgreSQL via Prisma. Documents, titles, formatting
   (stored as sanitized HTML), and share grants all survive a refresh or
   server restart.
-- **Mocked auth** — no passwords. Pick one of three seeded users on the login
-  screen; a signed cookie-free session cookie (just a user id) tracks who
-  you're acting as. This is intentionally not production auth — see
-  Limitations.
+- **Mocked auth** — a real login form (email + password) gates access, but
+  the three accounts and their passwords are hardcoded in
+  `src/lib/credentials.ts` rather than backed by a users table with hashed
+  passwords. A correct email/password pair sets a session cookie holding
+  that user's id; anything else is rejected with no cookie set. This is
+  intentionally not production auth — see Limitations.
 
 ## Validation & error handling
 
@@ -83,10 +86,13 @@ npm run db:seed                 # seeds 3 demo users + 1 sample shared document
 npm run dev                     # http://localhost:3000
 ```
 
-You'll land on `/login` — pick any seeded user (Ava, Ben, or Cara) to
-continue. Ava owns a "Welcome to Collab Docs" document already shared with
-Ben (edit access), so you can see owned vs. shared documents immediately.
-To try sharing yourself, share a document with `ben@example.com` or
+You'll land on `/login`, which lists the three demo accounts and their
+passwords right on the page — sign in as any of them
+(`ava@example.com` / `ava123`, `ben@example.com` / `ben123`,
+`cara@example.com` / `cara123`) to continue. Ava owns a
+"Welcome to Collab Docs" document already shared with Ben (edit access),
+so you can see owned vs. shared documents immediately. To try sharing
+yourself, share a document with `ben@example.com` or
 `cara@example.com` from the Share dialog.
 
 `db:push` is used instead of Prisma's migration workflow because most free
@@ -102,7 +108,7 @@ long-lived production database would want real migration history instead.
 npm test
 ```
 
-20 tests across three suites, all pure functions tested without a database:
+24 tests across four suites, all pure functions tested without a database:
 - `permissions.test.ts` — role resolution (`getRole`/`canEdit`/`canView`/
   `canManageSharing`/`canDelete`), the sharing model's actual correctness.
 - `fileImport.test.ts` — `.txt`/`.md` → HTML conversion, extension
@@ -111,6 +117,9 @@ npm test
   pass through unchanged, `<script>`/`onerror`/`onclick` are stripped, and
   the font-size/list-style `style` values are constrained to their exact
   known sets (nothing else gets through).
+- `credentials.test.ts` — the login gate: correct email/password passes,
+  case-insensitive email but case-sensitive password, wrong password for a
+  known email fails, and an unknown email fails.
 
 ### Production build
 
@@ -148,10 +157,15 @@ code changes needed since the schema is already `postgresql`.
 
 ## Limitations (by design, given the timebox)
 
-- **Auth is mocked.** No passwords, no real sessions — a cookie just holds a
-  seeded user id. Fine for demonstrating the sharing model; not for
-  production. Real auth would slot in behind `src/lib/session.ts` without
-  touching the permission logic.
+- **Auth is mocked.** There's a real login form and it does gate access on a
+  correct email/password pair, but the three credentials are hardcoded in
+  `src/lib/credentials.ts` — no password hashing, no user-managed passwords,
+  no rate limiting on login attempts. A correct match just sets a cookie
+  holding that user's id (`src/lib/session.ts`). Fine for demonstrating the
+  sharing model; not for production. Real auth (hashed passwords in the
+  User table, or an auth provider) would slot in behind
+  `checkCredentials()`/`loginAs()` without touching the permission logic
+  downstream.
 - **File import supports `.txt` and `.md` only** (stated in the UI and here,
   as the assignment allows). No `.docx` parsing — that needs a real parser
   (e.g. mammoth.js) and was cut for time.

@@ -54,12 +54,19 @@ Concretely, that meant:
   project this size, a real gap for anything longer-lived (see Getting
   Started in the README).
 - **Mocked auth, deliberately shallow.** The assignment explicitly allows
-  seeded/mocked accounts, and real auth (password hashing, session tokens,
-  email verification) doesn't teach a reviewer anything about *this*
-  exercise — it would just consume hours better spent on the sharing model
-  and editor UX. The cookie-based mock session lives entirely behind
-  `getCurrentUser()`/`requireUser()` in `src/lib/session.ts`, so swapping in
-  real auth later is a localized change, not a rewrite.
+  seeded/mocked accounts, and real auth (password hashing, real session
+  tokens, email verification) doesn't teach a reviewer anything about
+  *this* exercise — it would just consume hours better spent on the
+  sharing model and editor UX. There is a real login gate (email + password
+  form, wrong credentials rejected) rather than a one-click "log in as
+  X" — but the three credentials are hardcoded in
+  `src/lib/credentials.ts` instead of hashed and stored per-user. The
+  cookie-based session itself lives entirely behind
+  `getCurrentUser()`/`requireUser()` in `src/lib/session.ts`, and the
+  credential check is isolated in one pure, tested function
+  (`checkCredentials()`), so swapping in real auth later means replacing
+  that one function and its data source, not touching the session or
+  permission layers at all.
 
 ## What I explicitly did not build
 
