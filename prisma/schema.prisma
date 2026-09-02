@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -31,8 +31,8 @@ model Document {
   @@index([ownerId])
 }
 
-// SQLite has no native enum type, so permission is a plain string
-// constrained in application code to "VIEW" | "EDIT" (see src/lib/permissions.ts).
+// Plain string rather than a native enum, constrained in application code
+// to "VIEW" | "EDIT" (see src/lib/permissions.ts and src/lib/validation.ts).
 model Share {
   id         String   @id @default(cuid())
   documentId String

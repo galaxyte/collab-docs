@@ -1,9 +1,13 @@
 # Collab Docs
 
 A lightweight collaborative document editor (Google Docs-inspired) built with
-Next.js, Prisma/SQLite, and Tiptap. Built as a timeboxed take-home exercise —
-see [`ARCHITECTURE.md`](./ARCHITECTURE.md) for what was prioritized and why,
-and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools were used.
+Next.js, Prisma/PostgreSQL, and Tiptap. Built as a timeboxed take-home
+exercise — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) for what was
+prioritized and why, and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools
+were used.
+
+**Live demo: https://collab-docs-wheat.vercel.app** — pick any seeded user
+on the login screen (no password needed).
 
 ## Features
 
@@ -22,8 +26,8 @@ and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools were used.
   granting "Can view" or "Can edit" access. The dashboard visually separates
   **My documents** from **Shared with me**, and the editor shows a "View
   only" badge plus a disabled toolbar for viewers.
-- **Persistence** — SQLite via Prisma. Documents, titles, formatting (stored
-  as sanitized-on-render HTML), and share grants all survive a refresh or
+- **Persistence** — PostgreSQL via Prisma. Documents, titles, formatting
+  (stored as sanitized HTML), and share grants all survive a refresh or
   server restart.
 - **Mocked auth** — no passwords. Pick one of three seeded users on the login
   screen; a signed cookie-free session cookie (just a user id) tracks who
@@ -60,7 +64,7 @@ and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools were used.
 - **Next.js 16** (App Router, TypeScript) — Server Components fetch data
   directly from Prisma; Route Handlers (`/api/documents/**`) handle
   client-triggered mutations (create, autosave, share, upload, delete).
-- **Prisma + SQLite** for persistence (`prisma/schema.prisma`).
+- **Prisma + PostgreSQL** for persistence (`prisma/schema.prisma`).
 - **Tiptap / ProseMirror** for the rich text editor.
 - **Zod** for request validation on every API route.
 - **Tailwind CSS v4** for styling.
@@ -68,14 +72,15 @@ and [`AI_USAGE.md`](./AI_USAGE.md) for how AI tools were used.
 
 ## Getting started
 
-Requires Node 18+.
+Requires Node 18+ and a Postgres database (any free tier works — Neon,
+Supabase, Vercel's own Postgres storage, or a local Postgres install).
 
 ```bash
-npm install                # also runs `prisma generate` via postinstall
-cp .env.example .env       # DATABASE_URL="file:./dev.db"
-npm run db:migrate         # creates prisma/dev.db and applies the schema
-npm run db:seed            # seeds 3 demo users + 1 sample shared document
-npm run dev                # http://localhost:3000
+npm install                     # also runs `prisma generate` via postinstall
+cp .env.example .env            # then paste your DATABASE_URL into .env
+npm run db:push                 # creates the schema on that database
+npm run db:seed                 # seeds 3 demo users + 1 sample shared document
+npm run dev                     # http://localhost:3000
 ```
 
 You'll land on `/login` — pick any seeded user (Ava, Ben, or Cara) to
@@ -83,6 +88,13 @@ continue. Ava owns a "Welcome to Collab Docs" document already shared with
 Ben (edit access), so you can see owned vs. shared documents immediately.
 To try sharing yourself, share a document with `ben@example.com` or
 `cara@example.com` from the Share dialog.
+
+`db:push` is used instead of Prisma's migration workflow because most free
+managed Postgres tiers (including the one this project deploys to) don't
+grant the `CREATE DATABASE` permission `prisma migrate dev` needs for its
+shadow database — `db push` syncs the schema directly and doesn't need it.
+Fine for a project this size with one contributor; a team project with a
+long-lived production database would want real migration history instead.
 
 ### Tests
 
@@ -109,32 +121,30 @@ npm start
 
 ## Deployment
 
-SQLite's single-file database doesn't survive on platforms with ephemeral or
-read-only filesystems (e.g. Vercel serverless functions), so pick one of:
+**Live**: https://collab-docs-wheat.vercel.app, deployed on Vercel with
+Vercel's native Postgres storage (Storage tab → Create Database → Postgres,
+which provisions a managed instance and injects `DATABASE_URL` into the
+project automatically). Steps taken:
+1. `vercel link` to create the project, `vercel deploy --prod` to build/ship.
+2. Created the Postgres database from the project's Storage tab in the
+   Vercel dashboard (the one manual step — provisioning storage isn't
+   exposed non-interactively in the CLI, and it's a permission grant that
+   has to come from the account owner).
+3. `vercel env pull` to get the generated `DATABASE_URL`, then
+   `prisma db push` + the seed script against it (see *why `db push`* in
+   Getting Started above).
+4. Redeployed so the build picks up the Postgres-backed schema.
 
-**Option A — Railway / Render / Fly.io (recommended, minimal changes)**
-These run a persistent container/VM, so SQLite works as-is:
-1. Push this repo to GitHub.
-2. Create a new app from the repo (Railway: "Deploy from GitHub repo").
-3. Attach a persistent volume mounted so `prisma/dev.db` lives on it (e.g.
-   set `DATABASE_URL=file:/data/prod.db` and mount the volume at `/data`).
-4. Set the build command to `npm install && npm run build` and the start
-   command to `npm run db:migrate:deploy && npm start` (see script below).
-5. Set `DATABASE_URL` as an environment variable.
+Note this repo was originally built against SQLite for zero-setup local
+dev, then switched to Postgres end-to-end (local `.env` included) once the
+deploy target was decided — see `ARCHITECTURE.md` for that tradeoff.
 
-**Option B — Vercel + hosted Postgres (Neon/Supabase free tier)**
-1. Change `provider = "sqlite"` to `provider = "postgresql"` in
-   `prisma/schema.prisma` (SQLite has no native enum/concurrent-write support
-   anyway, so Postgres is the better fit for a real deployment).
-2. Set `DATABASE_URL` to the Postgres connection string in Vercel's project
-   env vars.
-3. Run `npx prisma migrate deploy` once against that database (locally, with
-   `DATABASE_URL` pointed at it) to create the schema, then `npm run db:seed`
-   if you want the demo users.
-4. Deploy with `vercel` (or connect the GitHub repo in the Vercel dashboard).
-
-Add a `db:migrate:deploy` script (`prisma migrate deploy`) if your platform's
-start step should apply pending migrations before booting.
+**Alternative — Railway / Render / Fly.io**: these run a persistent
+container/VM rather than ephemeral serverless functions, so if you'd rather
+not depend on a managed Postgres tier you can point `DATABASE_URL` at a
+Postgres instance attached the same way (most of these platforms offer a
+one-click Postgres add-on) and deploy from the GitHub repo directly — no
+code changes needed since the schema is already `postgresql`.
 
 ## Limitations (by design, given the timebox)
 

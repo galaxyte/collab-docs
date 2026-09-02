@@ -39,13 +39,20 @@ Concretely, that meant:
   the *product* feel of Google Docs — you never think about saving — without
   the concurrency-control project. The README calls this out explicitly as a
   known limitation rather than pretending it's real-time.
-- **SQLite for local dev, documented path to Postgres for deployment.**
-  SQLite is zero-setup and fast to iterate against, and Prisma makes the
-  provider swap a two-line change. I didn't want to spend timebox minutes
-  wiring up a hosted Postgres instance just to develop locally, but I also
-  didn't want to silently hand over an app that can't actually persist once
-  deployed to a serverless platform — so the tradeoff and the fix are both in
-  the README rather than discovered at deploy time.
+- **Started on SQLite, moved to Postgres once the deploy target was fixed.**
+  SQLite was the fastest way to get a working app during development —
+  zero setup, no external account, and Prisma made the eventual provider
+  swap a one-line schema change plus a re-push of the schema. Once Vercel
+  was chosen as the deploy target (serverless functions, ephemeral
+  filesystem — SQLite doesn't survive that), the project moved fully to a
+  managed Postgres instance for both local dev and production, rather than
+  keeping SQLite as a separate local-only path that would drift from what's
+  actually deployed. The one real cost of that move: `prisma migrate dev`
+  needs `CREATE DATABASE` for its shadow database, which most free managed
+  Postgres tiers don't grant, so schema changes go through `prisma db push`
+  instead of tracked migration files — acceptable for a single-contributor
+  project this size, a real gap for anything longer-lived (see Getting
+  Started in the README).
 - **Mocked auth, deliberately shallow.** The assignment explicitly allows
   seeded/mocked accounts, and real auth (password hashing, session tokens,
   email verification) doesn't teach a reviewer anything about *this*
@@ -73,9 +80,12 @@ Document(id, title, content: html, ownerId → User, createdAt, updatedAt)
 Share(id, documentId → Document, userId → User, permission: "VIEW" | "EDIT")
 ```
 
-`permission` is a plain string rather than a native enum because SQLite has
-no enum type; it's constrained to `"VIEW" | "EDIT"` at the Zod/TypeScript
-layer instead (`src/lib/validation.ts`, `src/lib/permissions.ts`). Document
+`permission` is a plain string rather than a native Postgres enum — a small
+deliberate simplicity tradeoff, kept from when the project started on
+SQLite (which has no enum type). It's constrained to `"VIEW" | "EDIT"` at
+the Zod/TypeScript layer instead (`src/lib/validation.ts`,
+`src/lib/permissions.ts`), which was true either way and is enough for two
+values that aren't expected to grow. Document
 content is stored as HTML — simple to persist and re-render — but since the
 `PATCH /api/documents/[id]` route accepts that HTML directly from the
 client, it can't be trusted as "definitely came from Tiptap." Both write
