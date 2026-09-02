@@ -25,4 +25,20 @@ describe("sanitizeDocumentContent", () => {
     expect(out).not.toContain("onclick");
     expect(out).toContain("click me");
   });
+
+  it("keeps known bullet/number list-style-type values on ul/ol", () => {
+    const bullets = sanitizeDocumentContent('<ul style="list-style-type: circle"><li>a</li></ul>');
+    expect(bullets).toContain('style="list-style-type:circle"');
+
+    const numbers = sanitizeDocumentContent('<ol style="list-style-type: lower-roman"><li>a</li></ol>');
+    expect(numbers).toContain('style="list-style-type:lower-roman"');
+  });
+
+  it("drops list-style-type values outside the known set", () => {
+    const out = sanitizeDocumentContent(
+      '<ul style="list-style-type: url(javascript:alert(1))"><li>a</li></ul>'
+    );
+    expect(out).not.toContain("style=");
+    expect(out).not.toContain("javascript:");
+  });
 });

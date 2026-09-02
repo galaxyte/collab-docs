@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TextStyle, FontSize } from "@tiptap/extension-text-style";
+import { StyledBulletList, StyledOrderedList } from "@/lib/tiptap-list-style";
 import { Toolbar } from "@/components/Toolbar";
 import { ShareDialog, type ShareEntry } from "@/components/ShareDialog";
 import type { Role } from "@/lib/permissions";
@@ -45,8 +47,12 @@ export function DocumentEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ bulletList: false, orderedList: false }),
+      StyledBulletList,
+      StyledOrderedList,
       Underline,
+      TextStyle,
+      FontSize,
       Placeholder.configure({ placeholder: "Start writing…" }),
     ],
     content: initialContent,
@@ -59,6 +65,29 @@ export function DocumentEditor({
     },
     onUpdate: () => {
       scheduleSave({ content: editor?.getHTML() });
+    },
+  });
+
+  // Tiptap v3's useEditor doesn't re-render on every transaction by default
+  // (a perf change) — without this, toolbar highlighting (bold/italic/...)
+  // and the font-size field would lag a render behind the actual selection.
+  const editorState = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      if (!e) return null;
+      return {
+        bold: e.isActive("bold"),
+        italic: e.isActive("italic"),
+        underline: e.isActive("underline"),
+        heading1: e.isActive("heading", { level: 1 }),
+        heading2: e.isActive("heading", { level: 2 }),
+        paragraph: e.isActive("paragraph"),
+        bulletList: e.isActive("bulletList"),
+        orderedList: e.isActive("orderedList"),
+        bulletStyle: (e.getAttributes("bulletList").bulletStyle as string | undefined) ?? "disc",
+        numberStyle: (e.getAttributes("orderedList").numberStyle as string | undefined) ?? "decimal",
+        fontSize: (e.getAttributes("textStyle").fontSize as string | undefined) ?? null,
+      };
     },
   });
 
@@ -120,15 +149,33 @@ export function DocumentEditor({
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <Link href="/" className="text-sm text-neutral-500 hover:text-neutral-700">
+        <Link
+          href="/"
+          className="flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-indigo-600"
+        >
           ← All documents
         </Link>
         <div className="flex items-center gap-2 text-xs">
-          {status === "saving" && <span className="text-neutral-400">Saving…</span>}
-          {status === "saved" && <span className="text-neutral-400">Saved</span>}
-          {status === "error" && <span className="text-red-600">{error ?? "Save failed"}</span>}
+          {status === "saving" && (
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+              Saving…
+            </span>
+          )}
+          {status === "saved" && (
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Saved
+            </span>
+          )}
+          {status === "error" && (
+            <span className="flex items-center gap-1.5 text-rose-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              {error ?? "Save failed"}
+            </span>
+          )}
           {!editable && (
-            <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-medium text-neutral-600">
+            <span className="rounded-full bg-sky-50 px-2.5 py-1 font-medium text-sky-700 ring-1 ring-sky-100">
               View only
             </span>
           )}
@@ -141,16 +188,16 @@ export function DocumentEditor({
           onChange={(e) => handleTitleChange(e.target.value)}
           disabled={!editable}
           placeholder="Untitled document"
-          className="w-full max-w-lg bg-transparent text-2xl font-semibold text-neutral-900 outline-none disabled:text-neutral-700"
+          className="w-full max-w-lg rounded-md bg-transparent px-1 text-2xl font-semibold text-slate-900 outline-none transition focus:bg-white focus:shadow-sm focus:ring-1 focus:ring-indigo-200 disabled:text-slate-700"
         />
         <div className="flex shrink-0 items-center gap-2">
           {role !== "OWNER" && (
-            <span className="text-xs text-neutral-500">Owned by {owner.name}</span>
+            <span className="text-xs text-slate-500">Owned by {owner.name}</span>
           )}
           {canManageSharing && (
             <button
               onClick={() => setShareOpen(true)}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+              className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100"
             >
               Share
             </button>
@@ -158,23 +205,23 @@ export function DocumentEditor({
           {canDelete && !confirmingDelete && (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+              className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
             >
               Delete
             </button>
           )}
           {canDelete && confirmingDelete && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-neutral-600">Delete this document?</span>
+              <span className="text-slate-600">Delete this document?</span>
               <button
                 onClick={handleDelete}
-                className="rounded-md bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700"
+                className="rounded-full bg-rose-600 px-2.5 py-1 font-medium text-white transition hover:bg-rose-700"
               >
                 Confirm
               </button>
               <button
                 onClick={() => setConfirmingDelete(false)}
-                className="rounded-md border border-neutral-300 px-2 py-1 text-neutral-600 hover:bg-neutral-50"
+                className="rounded-full border border-slate-300 px-2.5 py-1 text-slate-600 transition hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -183,8 +230,10 @@ export function DocumentEditor({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        {editable && editor && <Toolbar editor={editor} />}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
+        {editable && editor && editorState && (
+          <Toolbar editor={editor} state={editorState} />
+        )}
         <EditorContent editor={editor} />
       </div>
 

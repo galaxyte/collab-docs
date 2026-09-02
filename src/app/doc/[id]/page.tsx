@@ -27,7 +27,7 @@ export default async function DocumentPage({
   if (role === "NONE") notFound();
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen">
       <Header user={user} />
       <DocumentEditor
         documentId={doc.id}

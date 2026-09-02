@@ -42,11 +42,11 @@ export function UploadButton() {
       <button
         onClick={() => inputRef.current?.click()}
         disabled={pending}
-        className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+        className="rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-60"
       >
         {pending ? "Importing…" : "Upload .txt / .md"}
       </button>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
     </div>
   );
 }

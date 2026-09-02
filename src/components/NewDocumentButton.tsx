@@ -31,11 +31,11 @@ export function NewDocumentButton() {
       <button
         onClick={createDocument}
         disabled={pending}
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+        className="rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-200 transition hover:shadow-md hover:shadow-indigo-200 disabled:opacity-60"
       >
         {pending ? "Creating…" : "+ New document"}
       </button>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
     </div>
   );
 }
